@@ -1,0 +1,14 @@
+{
+  "name": "com.handcricket.server",
+  "version": "1.0.0",
+  "description": "hand cricket server to handle events and game state",
+  "main": "index.js",
+  "scripts": {
+    "test": "test event"
+  },
+  "author": "haraprasad",
+  "license": "ISC",
+  "dependencies": {
+    "socket.io": "^4.7.3"
+  }
+}
