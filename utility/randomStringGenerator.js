@@ -1,3 +1,5 @@
+ /* generates a random string of lenth <n> */
+ 
  generateRandomStringOfLengthN = n => {
     let randomString           = '';
     let characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -7,6 +9,10 @@
    }
    return randomString;
 }
+
+/* this function returns <number> number of strings
+*of length <n>
+*/
 
 numberOfRandomStringsOfLengthN = (number, n) => {
     idSet = new Set();

@@ -31,6 +31,8 @@ const createGameObject = (numberOfPlayers, initialUser, roomID) => {
         coinTossActivate:false,
         tossWinner:"",
         bat:"",
+        signA:'',
+        signB:'',
         activePlayerA:{},
         activePlayerB:{},
         captainTeamA:{},
@@ -62,18 +64,16 @@ const createGameObject = (numberOfPlayers, initialUser, roomID) => {
     }
     })
 }
+
 /* to be called only once per server initilization 
     its job in life is create a pool of ids from which
     gameid which is value wise same as rood id, are created
     @param numberOfGames recieves an argument for the number of such 
     ids that needs to be created
     */
-
 const createGamePool = (numberOfGames) => {
     gameIdPool.push(...numberOfRandomStringsOfLengthN(numberOfGames, 5));
-    logItOnFile(gameIdPool);
 }
-
 
 /*
 create a game object and initilaise the values
@@ -85,7 +85,6 @@ const createGame = (numberOfPlayers, initialUser) => {
     gameIdPool.splice(0,1);
     game = createGameObject(numberOfPlayers, initialUser, gameID);
     activeGames.set(gameID, game);
-    logItOnConsole("game id being returned = " + gameID)
     return gameID;
 }
 
@@ -118,6 +117,8 @@ const joinGame = (user, gameID, team) => {
 }
 
 /* the  fucntion changes  the active player of the game
+* active players can only aprticipate in batting bowling
+* At a time there is only one eactive player per team
 */
 
 const changeActivePlayer = (user) => {
@@ -146,16 +147,18 @@ const changeActivePlayer = (user) => {
     }
     }
     else {
-        logItOnFile("error changing ACTIVE PLAYER");
+        logItOnFile("[EROR] error changing ACTIVE PLAYER [USER] "+ JSON.stringify(user));
         return ({
-            userList:game.public.activeUsersTeamA,
-            message: "active player of team B changed",
+            userList:null,
+            message: "ERROR CHANGING ACTIVE PLAYER",
             team:'E'
         });
-    }
-       
-    }
+    }  
+}
 
+/* change captain is required when the existing captain gets 
+* disconnected
+*/
 
 const changeCaptain = (oldCaptainSock, newCaptainSock, roomID) =>{
     oldCaptain = getUser(oldCaptainSock);
@@ -175,6 +178,10 @@ const changeCaptain = (oldCaptainSock, newCaptainSock, roomID) =>{
 
 }
 
+/* this is coin spin indicating toss has been initiated
+* 200 is successful , 404 is error
+*/
+
 const coinTossAttempted = (roomID, user) => {
     if( user.captain && user.team === "A") {
         activeGames.get(roomID).private.COINFACE = setCoinFace();
@@ -182,6 +189,9 @@ const coinTossAttempted = (roomID, user) => {
     }
     else return 404;
 }
+
+/* decide who won the toss 
+*/
 
 const tossResult = (roomID, tossCall, user) => {
     game = activeGames.get(roomID);
@@ -197,11 +207,17 @@ const tossResult = (roomID, tossCall, user) => {
     }
 }
 
+/* set a coin face on toss attempt. Not sure about the logic.
+*/
+
 function setCoinFace() {
     coinFace = ["HEAD", "TAIL"];
     coin =  coinFace[(Math.random() * coinFace.length) | 0];
-    logItOnFile("room -" , roomID, "coin face", coin);
 }
+
+/* this fucntion sets the appropraite batting first and second
+* references so that we get a lesss if else ladder scorecard update
+*/
 
 const tossDecision = (data, roomID) => {
     game = activeGames.get(roomID);
@@ -234,37 +250,48 @@ const tossDecision = (data, roomID) => {
             game.private.secondInnings.teamBatting = game.public.scoreCard.teamAScore;
         }
     }
-    logItOnConsole("lets show bat variable after toss" + game.public.bat);
     return ("Team" + game.public.tossWinner + message)
 }
 
+/* this fucntion sets the team a sign for a game 
+* that would be used to compute the result, 
+*fresh signs would be used and signfresh would be false 
+*until next  fresh value is sent by client ( team ) 
+* setSignFreshA and setSignFreshB
+*/
+
 const setSignFreshA = (roomID, sign) => {
     game = activeGames.get(roomID);
+    game.public.signA = sign;
     game.private.signFreshA = true;
     if(game.public.bat === 'A') {
         game.private.battingActiveSign = sign;
-        logItOnConsole("team A batting sign -- " + sign);
     }
     else {
         game.private.bowlingActiveSign = sign;
-        logItOnConsole("team A bowling sign -- " + sign);
     }
 }
 
 const setSignFreshB  = (roomID, sign) => {
     game = activeGames.get(roomID);
+    game.public.signB = sign;
     game.private.signFreshB = true;
     if(game.public.bat === 'B') {
         game.private.battingActiveSign = sign;
-        logItOnConsole("team B batting sign -- " + sign);
     }
     else {
         game.private.bowlingActiveSign = sign;
-        logItOnConsole("team B bowling sign -- " + sign);
     }
 }
 
-
+/* updateScorecard returns the result of a game play
+* it computes it using the signs of both teams
+* recived batting and bowling signs for convienience
+* it has idea about which innings is goin on
+* and rest set by obejct references it justs updates
+* that. It has updated field that is set to true 
+* if any true computation takes place and is returned
+*/
 
 const updateScoreCard = (gameID) => {
     game = activeGames.get(gameID);
@@ -294,22 +321,21 @@ const updateScoreCard = (gameID) => {
             game.private.inningsIndex = 2;
             game.public.displayCardScore = 0;
             game.public.displayCardWickets = 0;
-            logItOnConsole("batiing variable change: " + game.public.bat)
+            // [ACTION] : Innings change direct batting indicator
             if( game.public.bat === 'A') {
-                logItOnConsole("do u even come here if yes then batting B");
                 game.public.bat = 'B'
             }
             else {
                 game.public.bat = 'A';
-                logItOnConsole("do u even come here if yes then batting A");
             }
-            logItOnConsole("batiing variable change: " + game.public.bat)
         }
         return ({
             scoreCard: game.public.scoreCard,
             inningsIndex: game.private.inningsIndex,
             displayCardScore: game.public.displayCardScore,
             displayCardWickets: game.public.displayCardWickets,
+            signA: game.public.signA,
+            signB: game.public.signB,
             updated: true
         });
     }
@@ -323,6 +349,7 @@ const updateScoreCard = (gameID) => {
             game.private.secondInnings.teamBatting.score +=game.private.battingActiveSign;
             game.public.displayCardScore += game.private.battingActiveSign;
         }
+        // [GAME OVER] this condition satisifies means game is done.
         if(game.private.secondInnings.teamBatting.wickets === game.public.numberOfPlayersOnEachSide || 
             game.private.secondInnings.teamBatting.score > game.private.firstInnings.teamBatting.score) {
             game.private.inningsIndex = 3;
@@ -332,14 +359,22 @@ const updateScoreCard = (gameID) => {
             inningsIndex: game.private.inningsIndex,
             displayCardScore: game.public.displayCardScore,
             displayCardWickets: game.public.displayCardWickets,
+            signA: game.public.signA,
+            signB: game.public.signB,
             updated:true
         });
     }
 }
 
+/* validate whether a room id exists or not 
+*/
+
 const validateRoomID = (roomID) =>{
     return activeGames.has(roomID);
 }
+
+/* checkk team strength whether users can join
+*/
 
 const validateTeamCapacity = (gameID, team) => {
     game = activeGames.get(gameID);   
@@ -351,6 +386,8 @@ const validateTeamCapacity = (gameID, team) => {
     }
     else return "roomNameError";
 }
+
+/* get the game state */
 
 const getGameState = (gameID) => {
     return activeGames.get(gameID).public;

@@ -20,40 +20,36 @@ const io = new Server({ cors: {
 }});
 
 io.use((socket, next)=> {
+  logItOnFile(socket);
   next();
 })
 
 io.on("connection", (socket) => {
-  logItOnFile("A new connection", socket.id);
-   user = createUser(socket.id);
-   addUser(user);
+  logItOnFile("[INFO] A new connection [SKID] " + socket.id);
+  user = createUser(socket.id);
+  addUser(user);
 
    //create game
   socket.on("create-game", ({username, noOfPlayersInEachSide}) => {
-    logItOnConsole("username" + username);
     roomID = createGame(noOfPlayersInEachSide, username);
-    logItOnFile("a new game has been created with room id/game id-- " + roomID);
+    logItOnFile("[INFO] a new game has been created [GAME] " + roomID);
     assignData(user, username, "A", roomID);
     socket.myCustomUserHandle = user
     socket.join(roomID);
     joinGame(user,roomID,"A");
 
     //client emits will go here
-    message = "game created successfully";
     gameState = getGameState(roomID);
-    console.log("game state");
-    console.log(roomID, gameState)
     socket.emit("game-created", {gameState, user});
   });
   
   //join game
   socket.on("join-game", ({username, roomID, team }) => {
     // check room id valid
-    logItOnFile("user trying to join a room")
     if(validateRoomID(roomID) && validateTeamCapacity(roomID, team) === true) {
-      logItOnFile("A new player has joined the room-- " + roomID + "team --" + team);
+      logItOnFile("[INFO] A new player has joined the room-- [GAME] " + roomID);
       //emit to room
-      
+
       //emit it to the user
       assignData(user, username, team, roomID);
       socket.myCustomUserHandle = user;
@@ -64,6 +60,7 @@ io.on("connection", (socket) => {
       socket.join(roomID);
     }
     else {
+      logItOnFile("[UXER] user JOINING failed [GAME] " + roomID);
       socket.emit("custom-error", {errorMessgae:"Game join failed -  No capapcity or wrong room"});
     }
   });
@@ -78,15 +75,14 @@ io.on("connection", (socket) => {
   
   //toss attempt = spin the coin
   socket.on("toss-attempt",({roomID, user})=> {
-    logItOnConsole(roomID,user);
     const result = coinTossAttempted(roomID, user);
-   
     if (result === 200) {
       message ="Coin tossed .. Waiting for captain's call"
       io.to(roomID).emit("toss-attempted",({result,message}));
     }
     else {
-      socket.emit("custom-error","error");
+      logItOnFile("[ER0R] toss attempt failed [RVAL] " + result)
+      socket.emit("custom-error","toss failed please try again");
     }
 
   });
@@ -99,7 +95,6 @@ io.on("connection", (socket) => {
 
   socket.on("toss-winner-choice", ({data, roomID}) => {
        const decision = tossDecision(data, roomID);
-       // broad cast to room about the decision
        io.to(roomID).emit("toss-decision",({decision}));
   });
 
@@ -107,11 +102,11 @@ io.on("connection", (socket) => {
   //sign is the number
   socket.on("game-play", ({user, roomID, sign}) => {
     if(user.active && user.team === 'A') {
-      logItOnConsole("message from A is  --  " + sign);
+      logItOnFile("[INFO] sign from A-- [SIGN] " + sign + " [GAME] " + roomID);
       setSignFreshA(roomID,sign);
     }
     if(user.active && user.team === 'B') {
-      logItOnConsole("message from B is  --  " + sign);
+      logItOnFile("[INFO] sign from B-- [SIGN] " + sign + " [GAME] " + roomID);
       setSignFreshB(roomID,sign);
     }
 
@@ -121,8 +116,7 @@ io.on("connection", (socket) => {
     //        displayCardWickets:
     //        updated: }
     result = updateScoreCard(roomID);
-    //logItOnConsole("the game result is as follows: ");
-    //logItOnConsole(result);
+    logItOnFile("[INFO] game result [RSLT] " + JSON.stringify(result) + " [GAME] " + roomID);
     io.to(roomID).emit("game-result", result);
   })
 // player category interaction
@@ -133,7 +127,7 @@ io.on("connection", (socket) => {
    io.to(user.room).emit("active-player-changed", usersListTeam);
  })
  socket.on("disconnect", (reason) => {
-    console.log(reason);
+    logItOnFile("[INFO] Disocnnected [SKID] " + socket.id)
     console.log("disoconnected");
   });
 });
