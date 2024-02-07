@@ -5,3 +5,8 @@ const logItOnConsole = (message) => {
 const logItOnFile = (message) => {
     console.log(message);
 }
+
+module.exports = {
+    logItOnConsole,
+    logItOnFile
+}

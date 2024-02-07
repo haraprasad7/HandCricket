@@ -16,6 +16,9 @@ numberOfRandomStringsOfLengthN = (number, n) => {
         idSet.add(newSrting);
 
     }
-    return idSet;
+    return Array.from(idSet);
 }
 
+module.exports = {
+    numberOfRandomStringsOfLengthN
+}
