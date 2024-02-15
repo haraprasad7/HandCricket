@@ -250,7 +250,7 @@ const tossDecision = (data, roomID) => {
             game.private.secondInnings.teamBatting = game.public.scoreCard.teamAScore;
         }
     }
-    return ("Team" + game.public.tossWinner + message)
+    return ({message:"Team" + game.public.tossWinner + message, batting: game.public.bat})
 }
 
 /* this fucntion sets the team a sign for a game 

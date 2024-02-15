@@ -95,7 +95,7 @@ io.on("connection", (socket) => {
 
   socket.on("toss-winner-choice", ({data, roomID}) => {
        const decision = tossDecision(data, roomID);
-       io.to(roomID).emit("toss-decision",({decision}));
+       io.to(roomID).emit("toss-decision",(decision));
   });
 
   //game play events
@@ -123,8 +123,10 @@ io.on("connection", (socket) => {
 
 //userList data userList, team, message
  socket.on("change-active-player", ({user}) => {
+  if (socket.myCustomUserHandle.captain) {
    const usersListTeam = changeActivePlayer(user);
    io.to(user.room).emit("active-player-changed", usersListTeam);
+  }
  })
  socket.on("disconnect", (reason) => {
     logItOnFile("[INFO] Disocnnected [SKID] " + socket.id)
