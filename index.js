@@ -11,7 +11,7 @@ const { getGameState,
   joinGame,
   setSignFreshA,
   setSignFreshB,
-  createGame,createGamePool, changeActivePlayer} = require("./utility/gameManager")
+  createGame,uniqueUser,createGamePool, changeActivePlayer} = require("./utility/gameManager")
   const {   addUser, assignData, getUser, createUser} = require("./utility/user.js")
  
 const io = new Server({ cors: {
@@ -47,6 +47,7 @@ io.on("connection", (socket) => {
   socket.on("join-game", ({username, roomID, team }) => {
     // check room id valid
     if(validateRoomID(roomID) && validateTeamCapacity(roomID, team) === true) {
+      if(uniqueUser(username, roomID, team)){
       logItOnFile("[INFO] A new player has joined the room-- [GAME] " + roomID);
       //emit to room
 
@@ -58,10 +59,14 @@ io.on("connection", (socket) => {
       socket.emit("existing-game-state", {gameState, user});
       io.to(roomID).emit("player-joined", {user});
       socket.join(roomID);
+      }
+      else {
+        socket.emit("custom-info", {infoMessage:"Please try another username, your friend is already using this one"})
+      }
     }
     else {
       logItOnFile("[UXER] user JOINING failed [GAME] " + roomID);
-      socket.emit("custom-error", {errorMessgae:"Game join failed -  No capapcity or wrong room"});
+      socket.emit("custom-error", {errorMessage:"Game join failed -  No capapcity or wrong room"});
     }
   });
 
@@ -70,9 +75,6 @@ io.on("connection", (socket) => {
   to that user in our code's scope. But lets us just 
   go on with it and do cleaning later, much of it is cleaned, lets see */
 
-
-
-  
   //toss attempt = spin the coin
   socket.on("toss-attempt",({roomID, user})=> {
     const result = coinTossAttempted(roomID, user);

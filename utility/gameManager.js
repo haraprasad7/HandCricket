@@ -387,6 +387,16 @@ const validateTeamCapacity = (gameID, team) => {
     else return "roomNameError";
 }
 
+const uniqueUser = (username, roomID, team) => {
+    game = activeGames.get(roomID)
+    userList  = game.public.activeUsersTeamA.map(data => data.username);
+    if(userList.includes(username)) {
+        logItOnFile("user already exists")
+        return false;
+    }
+    return true;
+} 
+
 /* get the game state */
 
 const getGameState = (gameID) => {
@@ -407,5 +417,6 @@ module.exports = {
     joinGame,
     setSignFreshA,
     setSignFreshB,
-    createGame,createGamePool, createGameObject
+    createGame,createGamePool, createGameObject,
+    uniqueUser
 }
