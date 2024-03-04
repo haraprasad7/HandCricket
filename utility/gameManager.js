@@ -1,6 +1,5 @@
-const { logItOnConsole, logItOnFile } = require("../logging/utilityFunction");
 const { numberOfRandomStringsOfLengthN} = require("./randomStringGenerator");
-const {   addUser, assignData, getUser, createUser} = require("./user.js")
+const { getUser, deleteUser} = require("./user.js")
 const gameIdPool = new Array();
 const activeGames = new Map();
 
@@ -123,7 +122,7 @@ const joinGame = (user, gameID, team) => {
 
 const changeActivePlayer = (user) => {
     game = activeGames.get(user.room);
-    user = getUser(user.socketId);
+    user = getUser(user.id);
     if (!user.active) {  
     if (user.team === 'A') {
         game.public.activePlayerA.active = false;
@@ -147,7 +146,6 @@ const changeActivePlayer = (user) => {
     }
     }
     else {
-        logItOnFile("[EROR] error changing ACTIVE PLAYER [USER] "+ JSON.stringify(user));
         return ({
             userList:null,
             message: "ERROR CHANGING ACTIVE PLAYER",
@@ -156,14 +154,53 @@ const changeActivePlayer = (user) => {
     }  
 }
 
+const removeUser = (user, team) => {
+    let game = activeGames.get(user.room);
+    let captain;
+    let captainChanged = false;
+    let usersList;
+    if(team === 'A') {
+        game.public.activeUsersTeamA = game.public.activeUsersTeamA.filter(data => data.username != user.username);
+        if(user.captain && game.public.activeUsersTeamA.length > 0) {
+            changeCaptain(user, game.public.activeUsersTeamA[0]);
+            captainChanged = true;
+        }
+        if(user.active &&  game.public.activeUsersTeamA.length > 0) {
+            changeActivePlayer(game.public.activeUsersTeamA[0]);
+        }
+        captain = game.public.captainTeamA;
+        usersList = [...game.public.activeUsersTeamA];
+    }
+    else {
+        game.public.activeUsersTeamB = game.public.activeUsersTeamB.filter(data => data.username != user.username);
+        if(user.captain && game.public.activeUsersTeamB.length > 0) {
+            changeCaptain(user.id, game.public.activeUsersTeamA[0].id);
+            captainChanged = true;
+        }
+        if(user.active && game.public.activeUsersTeamB.length > 0) {
+            changeActivePlayer(game.public.activeUsersTeamB[0]);
+        }
+        captain = game.public.captainTeamB;
+        usersList = [...game.public.activeUsersTeamB];
+    }
+    deleteUser(user);
+    return ({
+        removedUser:user,
+        team:team,
+        usersList:usersList,
+        newCaptain: captain,
+        captainChanged: captainChanged
+    });
+}
+
 /* change captain is required when the existing captain gets 
 * disconnected
 */
 
-const changeCaptain = (oldCaptainSock, newCaptainSock, roomID) =>{
-    oldCaptain = getUser(oldCaptainSock);
-    newCaptain = getUser(newCaptainSock);
-    if(oldCaptainSock.captain) {
+const changeCaptain = (oldCaptainId, newCaptainId, roomID) =>{
+    oldCaptain = getUser(oldCaptainId);
+    newCaptain = getUser(newCaptainId);
+    if(oldCaptain.captain) {
         oldCaptain.captain = false;
         newCaptain.captain = true;
     }
@@ -374,6 +411,7 @@ const validateRoomID = (roomID) =>{
 }
 
 /* checkk team strength whether users can join
+* returns a boolean
 */
 
 const validateTeamCapacity = (gameID, team) => {
@@ -384,14 +422,17 @@ const validateTeamCapacity = (gameID, team) => {
     if(team === "B") {
         return game.public.activeUsersTeamB.length < game.public.numberOfPlayersOnEachSide
     }
-    else return "roomNameError";
+    else return false;
 }
+
+/* check if the user is unique in a team in a room
+* returns  a boolean
+*/
 
 const uniqueUser = (username, roomID, team) => {
     game = activeGames.get(roomID)
     userList  = game.public.activeUsersTeamA.map(data => data.username);
     if(userList.includes(username)) {
-        logItOnFile("user already exists")
         return false;
     }
     return true;
@@ -404,19 +445,8 @@ const getGameState = (gameID) => {
 }
 
 module.exports = {
-    getGameState,
-    validateRoomID,
-    validateTeamCapacity,
-    updateScoreCard,
-    tossDecision,
-    setCoinFace,
-    tossResult,
-    coinTossAttempted,
-    changeCaptain,
-    changeActivePlayer,
-    joinGame,
-    setSignFreshA,
-    setSignFreshB,
-    createGame,createGamePool, createGameObject,
-    uniqueUser
+    getGameState, validateRoomID, validateTeamCapacity, updateScoreCard, tossDecision,
+    setCoinFace, tossResult, coinTossAttempted, changeCaptain, changeActivePlayer, joinGame,
+    setSignFreshA, setSignFreshB, createGame, createGamePool, createGameObject,
+    uniqueUser, removeUser
 }
