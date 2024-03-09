@@ -20,6 +20,7 @@ const INACTIVE_USER_ATTEMPT = "Ask your captain for a chance !";
 
 io.on("connection", (socket) => {
   logItOnFile("[INFO] A new connection [SKID] " + socket.id);
+  let user;
   try {
   user = createUser();
   socket.myCustomUserHandle = user;
