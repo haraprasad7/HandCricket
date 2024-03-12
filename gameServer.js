@@ -188,6 +188,7 @@ io.on("connection", (socket) => {
 
  socket.on("disconnect", (reason) => {
     let userHandle = socket.myCustomUserHandle;
+    let username = userHandle.username
     try {
     if(userHandle.id.length > 0) {
     let team = userHandle.team;
@@ -196,7 +197,7 @@ io.on("connection", (socket) => {
     io.to(userHandle.room).emit("user-disconnected", userRemoved);
     message = userHandle.username + "left the game";
     io.to(userHandle.room).emit("custom-info", {infoMessage:message});
-    logItOnFile("[INFO] Disocnnected [SKID] " + socket.id + " [RVAL] " + userRemoved.username);
+    logItOnFile("[INFO] Disocnnected [SKID] " + socket.id + " [RVAL] " + username);
     }
     logItOnFile("[INFO] Disocnnected [SKID] " + socket.id);
     delete user;

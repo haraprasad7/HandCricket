@@ -28,6 +28,8 @@ const createGameObject = (numberOfPlayers, initialUser, roomID) => {
         activeUsersTeamA: [],
         activeUsersTeamB: [],
         coinTossActivate:false,
+        coinSpin:false,
+        tossCall:false,
         tossWinner:"",
         bat:"",
         signA:'',
@@ -157,31 +159,37 @@ const changeActivePlayer = (user) => {
 const removeUser = (user, team) => {
     let game = activeGames.get(user.room);
     let captain;
+    let activeUser;
+    let activeUserChanged = false;
     let captainChanged = false;
     let usersList;
     if(team === 'A') {
         game.public.activeUsersTeamA = game.public.activeUsersTeamA.filter(data => data.username != user.username);
         if(user.captain && game.public.activeUsersTeamA.length > 0) {
-            changeCaptain(user, game.public.activeUsersTeamA[0]);
+            changeCaptain(user.id, game.public.activeUsersTeamA[0].id, user.room);
             captainChanged = true;
         }
-        if(user.active &&  game.public.activeUsersTeamA.length > 0) {
-            changeActivePlayer(game.public.activeUsersTeamA[0]);
+        if(user.active && game.public.activeUsersTeamA.length > 0) {
+            changeActivePlayer(game.public.activeUsersTeamA[0], user.room);
+            activeUserChanged = true;
         }
         captain = game.public.captainTeamA;
         usersList = [...game.public.activeUsersTeamA];
+        activeUser  = game.public.activePlayerA;
     }
     else {
         game.public.activeUsersTeamB = game.public.activeUsersTeamB.filter(data => data.username != user.username);
         if(user.captain && game.public.activeUsersTeamB.length > 0) {
-            changeCaptain(user.id, game.public.activeUsersTeamA[0].id);
+            changeCaptain(user.id, game.public.activeUsersTeamB[0].id,  user.room);
             captainChanged = true;
         }
-        if(user.active && game.public.activeUsersTeamB.length > 0) {
-            changeActivePlayer(game.public.activeUsersTeamB[0]);
+        if(user.active &&  game.public.activeUsersTeamB.length > 0) {
+            changeActivePlayer(game.public.activeUsersTeamB[0],  user.room);
+            activeUserChanged = true;
         }
         captain = game.public.captainTeamB;
         usersList = [...game.public.activeUsersTeamB];
+        activeUser  = game.public.activePlayerB;
     }
     deleteUser(user);
     return ({
@@ -189,7 +197,9 @@ const removeUser = (user, team) => {
         team:team,
         usersList:usersList,
         newCaptain: captain,
-        captainChanged: captainChanged
+        captainChanged: captainChanged,
+        activeUserChanged:activeUserChanged,
+        newActiveUser:activeUser
     });
 }
 
@@ -198,8 +208,12 @@ const removeUser = (user, team) => {
 */
 
 const changeCaptain = (oldCaptainId, newCaptainId, roomID) =>{
+    console.log("debug id " + JSON.stringify(newCaptainId));
+    console.log("debug id " + JSON.stringify(oldCaptainId));
     oldCaptain = getUser(oldCaptainId);
     newCaptain = getUser(newCaptainId);
+    console.log("debug " + JSON.stringify(newCaptain));
+    console.log("debug " + JSON.stringify(oldCaptain));
     if(oldCaptain.captain) {
         oldCaptain.captain = false;
         newCaptain.captain = true;
@@ -209,7 +223,7 @@ const changeCaptain = (oldCaptainId, newCaptainId, roomID) =>{
     {
         game.public.captainTeamA = newCaptain;
     }
-    else {
+    else if (newCaptain.team === "B") {
         game.public.captainTeamB = newCaptain;
     }
 
@@ -222,6 +236,7 @@ const changeCaptain = (oldCaptainId, newCaptainId, roomID) =>{
 const coinTossAttempted = (roomID, user) => {
     if( user.captain && user.team === "A") {
         activeGames.get(roomID).private.COINFACE = setCoinFace();
+        activeGames.get(roomID).public.coinSpin = true;
         return 200;
     }
     else return 404;
@@ -234,12 +249,17 @@ const tossResult = (roomID, tossCall, user) => {
     game = activeGames.get(roomID);
     if(user.captain  && user.team === "B") {
         if(tossCall === game.private.COINFACE) {
-            game.public.tossWinner = "A";
-            return {winner:"A"};
+            game.public.tossWinner = "B";
+            game.public.coinTossActivate = false;
+            game.public.tossCall = true;
+            return {winner:"B"};
+           
         }
         else {
-            game.public.tossWinner ="B";
+            game.public.tossWinner ="A";
+            game.public.coinTossActivate = false;
             return {winner:"B"};
+            
         }
     }
 }
@@ -249,7 +269,8 @@ const tossResult = (roomID, tossCall, user) => {
 
 function setCoinFace() {
     coinFace = ["HEAD", "TAIL"];
-    coin =  coinFace[(Math.random() * coinFace.length) | 0];
+    coinIndex =  Math.floor((Math.random() * 2) + 1);
+    return coinFace[coinIndex-1];
 }
 
 /* this fucntion sets the appropraite batting first and second
