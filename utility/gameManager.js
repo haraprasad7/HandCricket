@@ -125,7 +125,6 @@ const joinGame = (user, gameID, team) => {
 const changeActivePlayer = (user) => {
     game = activeGames.get(user.room);
     user = getUser(user.id);
-    if (!user.active) {  
     if (user.team === 'A') {
         game.public.activePlayerA.active = false;
         user.active = true;
@@ -146,14 +145,6 @@ const changeActivePlayer = (user) => {
             team:'B'
         });
     }
-    }
-    else {
-        return ({
-            userList:null,
-            message: "ERROR CHANGING ACTIVE PLAYER",
-            team:'E'
-        });
-    }  
 }
 
 const removeUser = (user, team) => {
@@ -258,6 +249,7 @@ const tossResult = (roomID, tossCall, user) => {
         else {
             game.public.tossWinner ="A";
             game.public.coinTossActivate = false;
+            game.public.tossCall = true;
             return {winner:"B"};
             
         }
@@ -353,6 +345,8 @@ const setSignFreshB  = (roomID, sign) => {
 
 const updateScoreCard = (gameID) => {
     game = activeGames.get(gameID);
+    let wicket =  false;
+    let result = '';
     if(!game.private.signFreshA || !game.private.signFreshB)
     {
         return ({
@@ -360,7 +354,9 @@ const updateScoreCard = (gameID) => {
             inningsIndex: game.private.inningsIndex,
             displayCardScore: game.public.displayCardScore,
             displayCardWickets: game.public.displayCardWickets,
-            updated: false
+            updated: false,
+            wicket: false,
+            result:result
         });
     }
     //resetSignFresh
@@ -370,6 +366,14 @@ const updateScoreCard = (gameID) => {
         if (game.private.battingActiveSign ===  game.private.bowlingActiveSign) {
             game.private.firstInnings.teamBatting.wickets +=1;
             game.public.displayCardWickets += 1;
+            wicket = true;
+            if( game.public.bat === 'A') {
+               game.public.activePlayerA.active = false;
+            }
+            else {
+                game.public.activePlayerB.active = false;
+               
+            }
         }
         else {
             game.private.firstInnings.teamBatting.score +=game.private.battingActiveSign;
@@ -394,7 +398,9 @@ const updateScoreCard = (gameID) => {
             displayCardWickets: game.public.displayCardWickets,
             signA: game.public.signA,
             signB: game.public.signB,
-            updated: true
+            updated: true,
+            wicket: wicket,
+            result:result
         });
     }
     if(game.private.inningsIndex === 2) {
@@ -402,6 +408,14 @@ const updateScoreCard = (gameID) => {
         if (game.private.battingActiveSign ===  game.private.bowlingActiveSign) {
             game.private.secondInnings.teamBatting.wickets +=1;
             game.public.displayCardWickets += 1;
+            wicket = true;
+            if( game.public.bat === 'A') {
+                game.public.activePlayerA.active = false;
+             }
+             else {
+                 game.public.activePlayerB.active = false;
+                
+             }
         }
         else {
             game.private.secondInnings.teamBatting.score +=game.private.battingActiveSign;
@@ -411,6 +425,15 @@ const updateScoreCard = (gameID) => {
         if(game.private.secondInnings.teamBatting.wickets === game.public.numberOfPlayersOnEachSide || 
             game.private.secondInnings.teamBatting.score > game.private.firstInnings.teamBatting.score) {
             game.private.inningsIndex = 3;
+            if(game.private.secondInnings.teamBatting.score > game.private.firstInnings.teamBatting.score) {
+                result = 'B';
+            }
+            else if (game.private.secondInnings.teamBatting.score === game.private.firstInnings.teamBatting.score) {
+                result = "Tie";
+            }
+            else {
+                result = 'A';
+            }
         }
         return ({
             scoreCard: game.public.scoreCard,
@@ -419,7 +442,9 @@ const updateScoreCard = (gameID) => {
             displayCardWickets: game.public.displayCardWickets,
             signA: game.public.signA,
             signB: game.public.signB,
-            updated:true
+            updated:true,
+            wicket: wicket, 
+            result: result
         });
     }
 }
