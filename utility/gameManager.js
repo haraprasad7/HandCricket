@@ -18,8 +18,16 @@ on change active player => we change the active player of the team concerned
 
 /* the function job is to establish an agreement as to what a game object
 might look like. this object is the core of the application.
+
+gameStateIndicator 
+update the varaible as per following events
+0 - toss not yet activated.
+1- tossActivated [ oppoent captain joined event]
+2 - coin spin event
+3 - head and tails call event
+4 - toss winner has choosen bat or ball.
 */
-const createGameObject = (numberOfPlayers, initialUser, roomID) => {
+const createGameObject = (numberOfPlayers, roomID) => {
     
     return ({
         public :{
@@ -28,12 +36,12 @@ const createGameObject = (numberOfPlayers, initialUser, roomID) => {
         activeUsersTeamA: [],
         activeUsersTeamB: [],
         coinTossActivate:false,
-        coinSpin:false,
-        tossCall:false,
+        gameStateIndicator:0,
         tossWinner:"",
         bat:"",
-        signA:'',
-        signB:'',
+        signA:{},
+        signB:{},
+        result:"",
         activePlayerA:{},
         activePlayerB:{},
         captainTeamA:{},
@@ -58,8 +66,8 @@ const createGameObject = (numberOfPlayers, initialUser, roomID) => {
         secondInnings:{},
         COINFACE:"",
         inningsIndex:0,
-        battingActiveSign:0,
-        bowlingActiveSign:0,
+        battingActiveSign:{},
+        bowlingActiveSign:{},
         signFreshA: false,
         signFreshB: false
     }
@@ -81,10 +89,10 @@ create a game object and initilaise the values
 delete the gameiD from the pool.
 */
 
-const createGame = (numberOfPlayers, initialUser) => {
+const createGame = (numberOfPlayers) => {
     gameID = gameIdPool[0];
     gameIdPool.splice(0,1);
-    game = createGameObject(numberOfPlayers, initialUser, gameID);
+    game = createGameObject(numberOfPlayers, gameID);
     activeGames.set(gameID, game);
     return gameID;
 }
@@ -99,19 +107,16 @@ const joinGame = (user, gameID, team) => {
     if (team === "A") {
         if(game.public.activeUsersTeamA.length === 0) {
             user.captain = true;
-            user.active = true;
             game.public.captainTeamA = user;
-            game.public.activePlayerA = user;
         }
         game.public.activeUsersTeamA.push(user);
     }
     else if (team === "B") {
         if(game.public.activeUsersTeamB.length === 0) {
             user.captain = true;
-            user.active = true;
             game.public.captainTeamB = user;
-            game.public.activePlayerB = user;
             game.public.coinTossActivate = true;
+            game.public.gameStateIndicator = 1;
         }
         game.public.activeUsersTeamB.push(user);
     }
@@ -130,8 +135,8 @@ const changeActivePlayer = (user) => {
         user.active = true;
         game.public.activePlayerA = user;
         return ({
-            userList:game.public.activeUsersTeamA,
-            message: "active player of team A changed",
+            user:game.public.activePlayerA,
+            message: "Active player of team A changed",
             team:'A'
         });
     }
@@ -140,8 +145,8 @@ const changeActivePlayer = (user) => {
         user.active = true;
         game.public.activePlayerB = user;
         return ({
-            userList:game.public.activeUsersTeamB,
-            message: "active player of team B changed",
+            user:game.public.activePlayerB,
+            message: "Active player of team B changed",
             team:'B'
         });
     }
@@ -150,39 +155,69 @@ const changeActivePlayer = (user) => {
 const removeUser = (user, team) => {
     let game = activeGames.get(user.room);
     let captain;
-    let activeUser;
-    let activeUserChanged = false;
     let captainChanged = false;
     let usersList;
+    let activeUserChanged = false;
     if(team === 'A') {
-        game.public.activeUsersTeamA = game.public.activeUsersTeamA.filter(data => data.username != user.username);
-        if(user.captain && game.public.activeUsersTeamA.length > 0) {
-            changeCaptain(user.id, game.public.activeUsersTeamA[0].id, user.room);
-            captainChanged = true;
-        }
-        if(user.active && game.public.activeUsersTeamA.length > 0) {
-            changeActivePlayer(game.public.activeUsersTeamA[0], user.room);
+        if(user.active ) {
             activeUserChanged = true;
+            game.public.activePlayerA = {};
+        }
+        let otherPlayers = game.public.activeUsersTeamA.filter(data => (data.username != user.username) && data.online);
+        if(user.captain && otherPlayers.length > 0) {
+            otherPlayers[0].captain = true;
+            captainChanged = true;
+            game.public.captainTeamA = otherPlayers[0];
+        }
+        game.public.activeUsersTeamA.forEach(player => {
+            if(player.id === user.id) {
+                player.online  = false;
+                player.active = false;
+                player.captain = false;
+            }
+        });
+        if(user.cookieEnable)
+        {
+            usersList = [...game.public.activeUsersTeamA];
+        }
+        else {
+            game.public.activeUsersTeamA = game.public.activeUsersTeamA.filter(data => data.username != user.username);
+            usersList = [...game.public.activeUsersTeamA];
+            deleteUser(user);
         }
         captain = game.public.captainTeamA;
-        usersList = [...game.public.activeUsersTeamA];
-        activeUser  = game.public.activePlayerA;
+      
     }
     else {
-        game.public.activeUsersTeamB = game.public.activeUsersTeamB.filter(data => data.username != user.username);
-        if(user.captain && game.public.activeUsersTeamB.length > 0) {
-            changeCaptain(user.id, game.public.activeUsersTeamB[0].id,  user.room);
+        if(user.active ) {
+            activeUserChanged = true;
+            game.public.activePlayerB = {}
+        }
+        let otherPlayers = game.public.activeUsersTeamB.filter(data => (data.username != user.username) && data.online);
+        if(user.captain && otherPlayers.length > 0) {
+            otherPlayers[0].captain = true;
+            game.public.captainTeamB = otherPlayers[0];
             captainChanged = true;
         }
-        if(user.active &&  game.public.activeUsersTeamB.length > 0) {
-            changeActivePlayer(game.public.activeUsersTeamB[0],  user.room);
-            activeUserChanged = true;
+        game.public.activeUsersTeamB.forEach(player => {
+            if(player.id === user.id) {
+                player.online  = false;
+                player.active = false;
+                player.captain = false;
+            }
+        });
+        if(user.cookieEnable)
+        {
+            usersList = [...game.public.activeUsersTeamB];
+        }
+        else {
+            game.public.activeUsersTeamB = game.public.activeUsersTeamB.filter(data => data.username != user.username);
+            usersList = [...game.public.activeUsersTeamB];
+            deleteUser(user);
         }
         captain = game.public.captainTeamB;
-        usersList = [...game.public.activeUsersTeamB];
-        activeUser  = game.public.activePlayerB;
+        
     }
-    deleteUser(user);
     return ({
         removedUser:user,
         team:team,
@@ -190,7 +225,6 @@ const removeUser = (user, team) => {
         newCaptain: captain,
         captainChanged: captainChanged,
         activeUserChanged:activeUserChanged,
-        newActiveUser:activeUser
     });
 }
 
@@ -227,7 +261,7 @@ const changeCaptain = (oldCaptainId, newCaptainId, roomID) =>{
 const coinTossAttempted = (roomID, user) => {
     if( user.captain && user.team === "A") {
         activeGames.get(roomID).private.COINFACE = setCoinFace();
-        activeGames.get(roomID).public.coinSpin = true;
+        activeGames.get(roomID).public.gameStateIndicator = 2;
         return 200;
     }
     else return 404;
@@ -242,15 +276,15 @@ const tossResult = (roomID, tossCall, user) => {
         if(tossCall === game.private.COINFACE) {
             game.public.tossWinner = "B";
             game.public.coinTossActivate = false;
-            game.public.tossCall = true;
+            game.public.gameStateIndicator = 3;
             return {winner:"B"};
            
         }
         else {
             game.public.tossWinner ="A";
             game.public.coinTossActivate = false;
-            game.public.tossCall = true;
-            return {winner:"B"};
+            game.public.gameStateIndicator = 3;
+            return {winner:"A"};
             
         }
     }
@@ -275,6 +309,7 @@ const tossDecision = (data, roomID) => {
     let message = ''; 
     if(data === "BAT") {
         message =" bat first";
+        game.public.gameStateIndicator = 4;
         if(game.public.tossWinner ==="A") {
             game.private.firstInnings.teamBatting = game.public.scoreCard.teamAScore;
             game.private.secondInnings.teamBatting = game.public.scoreCard.teamBScore;
@@ -288,6 +323,7 @@ const tossDecision = (data, roomID) => {
         }
     }
     else {
+        game.public.gameStateIndicator = 4;
         message = ' bowl first';
         if(game.public.tossWinner === "B") {
             game.public.bat ="A";
@@ -300,7 +336,7 @@ const tossDecision = (data, roomID) => {
             game.private.secondInnings.teamBatting = game.public.scoreCard.teamAScore;
         }
     }
-    return ({message:"Team" + game.public.tossWinner + message, batting: game.public.bat})
+    return ({message:"Team " + game.public.tossWinner + message, batting: game.public.bat})
 }
 
 /* this fucntion sets the team a sign for a game 
@@ -310,27 +346,37 @@ const tossDecision = (data, roomID) => {
 * setSignFreshA and setSignFreshB
 */
 
-const setSignFreshA = (roomID, sign) => {
+const setSignFreshA = (roomID, sign, user) => {
+    getUser(user.id).cookieEnable = true;
     game = activeGames.get(roomID);
-    game.public.signA = sign;
+    let userSign =  {
+        sign:sign,
+        username:user.username
+    };
+    game.public.signA = userSign;
     game.private.signFreshA = true;
     if(game.public.bat === 'A') {
-        game.private.battingActiveSign = sign;
+        game.private.battingActiveSign = userSign;
     }
     else {
-        game.private.bowlingActiveSign = sign;
+        game.private.bowlingActiveSign = userSign;
     }
 }
 
-const setSignFreshB  = (roomID, sign) => {
+const setSignFreshB  = (roomID, sign, user) => {
+    getUser(user.id).cookieEnable = true;
     game = activeGames.get(roomID);
-    game.public.signB = sign;
+    let userSign =  {
+        sign:sign,
+        username:user.username
+    };
+    game.public.signB = userSign;
     game.private.signFreshB = true;
     if(game.public.bat === 'B') {
-        game.private.battingActiveSign = sign;
+        game.private.battingActiveSign = userSign;
     }
     else {
-        game.private.bowlingActiveSign = sign;
+        game.private.bowlingActiveSign = userSign;
     }
 }
 
@@ -362,22 +408,48 @@ const updateScoreCard = (gameID) => {
     //resetSignFresh
     game.private.signFreshA = false;
     game.private.signFreshB = false;
+    if(game.private.inningsIndex === 2) {
+        game.private.inningsIndex = 3;
+    }
     if(game.private.inningsIndex === 1) {
-        if (game.private.battingActiveSign ===  game.private.bowlingActiveSign) {
+        if (game.private.battingActiveSign.sign ===  game.private.bowlingActiveSign.sign) {
             game.private.firstInnings.teamBatting.wickets +=1;
             game.public.displayCardWickets += 1;
             wicket = true;
             if( game.public.bat === 'A') {
                game.public.activePlayerA.active = false;
+               game.public.activeUsersTeamB.forEach(user => {
+                   if (user.username === game.private.bowlingActiveSign.username) {
+                       user.wickets = user.wickets + 1;
+                   }
+               });
             }
             else {
                 game.public.activePlayerB.active = false;
-               
+                game.public.activeUsersTeamA.forEach(user => {
+                    if (user.username === game.private.bowlingActiveSign.username) {
+                        user.wickets = user.wickets + 1;
+                    }
+                });
             }
         }
         else {
-            game.private.firstInnings.teamBatting.score +=game.private.battingActiveSign;
-            game.public.displayCardScore += game.private.battingActiveSign;
+            game.private.firstInnings.teamBatting.score +=game.private.battingActiveSign.sign;
+            game.public.displayCardScore += game.private.battingActiveSign.sign;
+            if(game.public.bat === 'A') {
+                game.public.activeUsersTeamA.forEach(user => {
+                    if (user.username === game.private.battingActiveSign.username) {
+                        user.runs = user.runs + game.private.battingActiveSign.sign;
+                    }
+                });
+            }
+            else {
+                game.public.activeUsersTeamB.forEach(user => {
+                    if (user.username === game.private.battingActiveSign.username) {
+                        user.runs = user.runs + game.private.battingActiveSign.sign;
+                    }
+                });
+            }
         }
         if(game.private.firstInnings.teamBatting.wickets === game.public.numberOfPlayersOnEachSide) {
             game.private.inningsIndex = 2;
@@ -396,43 +468,72 @@ const updateScoreCard = (gameID) => {
             inningsIndex: game.private.inningsIndex,
             displayCardScore: game.public.displayCardScore,
             displayCardWickets: game.public.displayCardWickets,
-            signA: game.public.signA,
-            signB: game.public.signB,
+            signA: game.public.signA.sign,
+            signB: game.public.signB.sign,
+            userA:game.public.signA.username,
+            userB:game.public.signB.username,
             updated: true,
             wicket: wicket,
-            result:result
+            result:result,
         });
     }
-    if(game.private.inningsIndex === 2) {
+    if(game.private.inningsIndex === 3) {
        
-        if (game.private.battingActiveSign ===  game.private.bowlingActiveSign) {
+        if (game.private.battingActiveSign.sign ===  game.private.bowlingActiveSign.sign) {
             game.private.secondInnings.teamBatting.wickets +=1;
             game.public.displayCardWickets += 1;
             wicket = true;
             if( game.public.bat === 'A') {
                 game.public.activePlayerA.active = false;
+                game.public.activeUsersTeamB.forEach(user => {
+                    if (user.username === game.private.bowlingActiveSign.username) {
+                        user.wickets = user.wickets + 1;
+                    }
+                });
              }
              else {
                  game.public.activePlayerB.active = false;
+                 game.public.activeUsersTeamA.forEach(user => {
+                    if (user.username === game.private.bowlingActiveSign.username) {
+                        user.wickets = user.wickets + 1;
+                    }
+                });
                 
              }
         }
         else {
-            game.private.secondInnings.teamBatting.score +=game.private.battingActiveSign;
-            game.public.displayCardScore += game.private.battingActiveSign;
+            if(game.public.bat === 'A') {
+                game.public.activeUsersTeamA.forEach(user => {
+                    if (user.username === game.private.battingActiveSign.username) {
+                        user.runs = user.runs + game.private.battingActiveSign.sign;
+                    }
+                });
+            }
+            else {
+                game.public.activeUsersTeamB.forEach(user => {
+                    if (user.username === game.private.battingActiveSign.username) {
+                        user.runs = user.runs + game.private.battingActiveSign.sign;
+                    }
+                });
+            }
+            game.private.secondInnings.teamBatting.score +=game.private.battingActiveSign.sign;
+            game.public.displayCardScore += game.private.battingActiveSign.sign;
         }
         // [GAME OVER] this condition satisifies means game is done.
         if(game.private.secondInnings.teamBatting.wickets === game.public.numberOfPlayersOnEachSide || 
             game.private.secondInnings.teamBatting.score > game.private.firstInnings.teamBatting.score) {
-            game.private.inningsIndex = 3;
+            game.private.inningsIndex = 4;
             if(game.private.secondInnings.teamBatting.score > game.private.firstInnings.teamBatting.score) {
                 result = 'B';
+                game.public.result = 'B';
             }
             else if (game.private.secondInnings.teamBatting.score === game.private.firstInnings.teamBatting.score) {
-                result = "Tie";
+                result = "T";
+                game.public.result = 'T';
             }
             else {
                 result = 'A';
+                game.public.result = 'A';
             }
         }
         return ({
@@ -440,11 +541,14 @@ const updateScoreCard = (gameID) => {
             inningsIndex: game.private.inningsIndex,
             displayCardScore: game.public.displayCardScore,
             displayCardWickets: game.public.displayCardWickets,
-            signA: game.public.signA,
-            signB: game.public.signB,
+            signA: game.public.signA.sign,
+            signB: game.public.signB.sign,
+            userA:game.public.signA.username,
+            userB:game.public.signB.username,
             updated:true,
             wicket: wicket, 
-            result: result
+            result: result,
+            gameState: game.public
         });
     }
 }
@@ -477,7 +581,9 @@ const validateTeamCapacity = (gameID, team) => {
 
 const uniqueUser = (username, roomID, team) => {
     game = activeGames.get(roomID)
-    userList  = game.public.activeUsersTeamA.map(data => data.username);
+
+    userList  = team === 'A'?  
+    game.public.activeUsersTeamA.map(data => data.username) :  game.public.activeUsersTeamB.map(data => data.username);
     if(userList.includes(username)) {
         return false;
     }
@@ -490,9 +596,27 @@ const getGameState = (gameID) => {
     return activeGames.get(gameID).public;
 }
 
+const cleanGame = (gameID) => {
+    try {
+
+    let game = activeGames.get(gameID);
+    game.public.activeUsersTeamA.forEach(user => {
+        deleteUser(user.id);
+    });
+    game.public.activeUsersTeamB.forEach(user => {
+        deleteUser(user.id);
+    });
+    return activeGames.delete(gameID);
+    }
+    catch {
+        return false;
+    }
+}
+
+
 module.exports = {
     getGameState, validateRoomID, validateTeamCapacity, updateScoreCard, tossDecision,
     setCoinFace, tossResult, coinTossAttempted, changeCaptain, changeActivePlayer, joinGame,
     setSignFreshA, setSignFreshB, createGame, createGamePool, createGameObject,
-    uniqueUser, removeUser
+    uniqueUser, removeUser, cleanGame
 }

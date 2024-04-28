@@ -2,7 +2,7 @@ const { Server } = require("socket.io");
 const { logItOnConsole, logItOnFile } = require("./logging/utilityFunction");
 const { getGameState, validateRoomID, validateTeamCapacity, updateScoreCard,
   tossDecision, tossResult, coinTossAttempted, joinGame, setSignFreshA, setSignFreshB,
-  createGame,uniqueUser,createGamePool, removeUser, changeActivePlayer} = require("./utility/gameManager")
+  createGame,uniqueUser,createGamePool, removeUser, changeActivePlayer, cleanGame} = require("./utility/gameManager")
 const { assignData, createUser} = require("./utility/user.js")
  
 const io = new Server({ cors: {
@@ -31,14 +31,14 @@ io.on("connection", (socket) => {
    //create game
   socket.on("create-game", ({username, noOfPlayersInEachSide}) => {
     try {
-    roomID = createGame(noOfPlayersInEachSide, username);
+    roomID = createGame(noOfPlayersInEachSide);
     logItOnFile("[INFO] a new game has been created [GAME] " + roomID + "[USER] " + username);
     assignData(user, username, "A", roomID);
     socket.join(roomID);
     joinGame(user,roomID,"A");
 
     //client emits will go here
-    gameState = getGameState(roomID);
+    let gameState = getGameState(roomID);
     socket.emit("game-created", {gameState, user});
     }
     catch(error) {
@@ -48,10 +48,46 @@ io.on("connection", (socket) => {
   });
   
   //join game
-  socket.on("join-game", ({username, roomID, team }) => {
+  socket.on("join-game", ({username, roomID, team, cookie }) => {
     try {
     // check room id valid
-    if(validateRoomID(roomID) && validateTeamCapacity(roomID, team) === true) {
+    let validRoom = validateRoomID(roomID);
+    let teamCapacityValid = false;
+    if(validRoom) {
+      teamCapacityValid = validateTeamCapacity(roomID, team);
+    }
+    if(cookie) {
+      logItOnFile("Cookie join attempt");
+      if(validRoom) {
+      let gameState = getGameState(roomID);
+      if(team === 'A') {
+        user = gameState.activeUsersTeamA.find(users => users.username === username);
+        user.online = true;
+        if(gameState.captainTeamA.online === false) {
+          user.captain = true;
+          gameState.captainTeamA = user;
+        }
+      }
+      if(team === 'B') {
+        user = gameState.activeUsersTeamB.find(users => users.username === username);
+        user.online = true;
+        if(gameState.captainTeamB.online === false) {
+          user.captain = true;
+          gameState.captainTeamB = user;
+        }
+      }
+      socket.emit("existing-game-state", {gameState, user});
+      io.to(roomID).emit("player-joined", {user, cookie});
+      socket.join(roomID);
+      }
+    }
+    if(!validRoom) {
+      socket.emit("custom-error", {errorMessage:"Invalid Room number"});
+    }
+    if(!teamCapacityValid && !cookie && validRoom) {
+      socket.emit("custom-error", {errorMessage:"Room capacity full"});
+    }
+    if( validRoom && teamCapacityValid && !cookie) {
       if(uniqueUser(username, roomID, team)){
       logItOnFile("[INFO] A new player has joined the room-- [GAME] " + roomID + "[USER] " + username);
       //emit to room
@@ -59,23 +95,19 @@ io.on("connection", (socket) => {
       //emit it to the user
       assignData(user, username, team, roomID);
       joinGame(user,roomID, team);
-      gameState = getGameState(roomID);
+      let gameState = getGameState(roomID);
       socket.emit("existing-game-state", {gameState, user});
       io.to(roomID).emit("player-joined", {user});
       socket.join(roomID);
       }
       else {
-        logItOnFile("[UXER] user JOINING failed duplicate username [GAME] " + roomID);
-        socket.emit("custom-info", {infoMessage:USERNAME_DUPLICATE})
+        logItOnFile("[EROR] user JOINING failed duplicate username [GAME] " + roomID);
+        socket.emit("custom-error", {errorMessage:USERNAME_DUPLICATE})
       }
-    }
-    else {
-      logItOnFile("[UXER] user JOINING failed [GAME] " + roomID);
-      socket.emit("custom-error", {errorMessage:GAME_JOIN_FAILED});
     }
     }
     catch(error) {
-      socket.emit("custom-info" ,{infoMessage:"Join failed!"});
+      socket.emit("custom-error" ,{errorMessage:"Join failed!"});
       logItOnFile("[EROR] Error in join attempt " + error);
     }
     
@@ -139,11 +171,11 @@ io.on("connection", (socket) => {
     try {
     if(user.active && user.team === 'A') {
       logItOnFile("[INFO] sign from A-- [SIGN] " + sign + " [GAME] " + roomID + "[USER] " + user.username);
-      setSignFreshA(roomID,sign);
+      setSignFreshA(roomID,sign, user);
     }
     if(user.active && user.team === 'B') {
       logItOnFile("[INFO] sign from B-- [SIGN] " + sign + " [GAME] " + roomID + "[USER] " + user.username);
-      setSignFreshB(roomID,sign);
+      setSignFreshB(roomID,sign, user);
     }
 
     // result { scoreCard:
@@ -158,6 +190,9 @@ io.on("connection", (socket) => {
       logItOnFile("[UXER] inactive player interacting [GAME] " + roomID + "[USER] " + user.username);
       socket.emit("custom-info", {infoMessage:INACTIVE_USER_ATTEMPT})
     }
+    if(result.inningsIndex === 4) {
+      cleanGame(roomID);
+    }
   }
   catch(error) {
     logItOnFile("[EROR] Error in game play " + error);
@@ -170,7 +205,7 @@ io.on("connection", (socket) => {
 //{ userList, team, message }
  socket.on("change-active-player", ({user}) => {
   try {
-  if (socket.myCustomUserHandle.captain) {
+  if (socket.myCustomUserHandle.captain && socket.myCustomUserHandle.team === user.team) {
    const usersListTeam = changeActivePlayer(user);
    logItOnFile("[INFO] active player change request [GAME] " + roomID + "[USER] " + socket.myCustomUserHandle.username);
    logItOnFile("[INFO] active player changed [RSLT] " + JSON.stringify(usersListTeam) + " [GAME] " + roomID + "[USER] " + user.username);
@@ -184,6 +219,11 @@ io.on("connection", (socket) => {
     logItOnFile("[EROR] Error changing player  " + error);
     socket.emit("custom-info", {infoMessage:"Could not change active player"});
   }
+ });
+
+ socket.on("message", ({username, team, message, room}) => {
+    logItOnFile("[INFO] Message [SKID] " + username + " [ROOM] " + room);
+   io.to(room).emit("message", {username, team, message});
  });
 
  socket.on("disconnect", (reason) => {

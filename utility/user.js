@@ -22,6 +22,10 @@ const assignData = (user, username, team, room) => {
     user.room = room;
     user.captain = false;
     user.active  = false;
+    user.online = true;
+    user.cookieEnable = false;
+    user.runs = 0;
+    user.wickets = 0;
     user.id = username+room+team;
     users.set(user.id, user);
 }
