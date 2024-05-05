@@ -3,7 +3,7 @@ const { logItOnConsole, logItOnFile } = require("./logging/utilityFunction");
 const { getGameState, validateRoomID, validateTeamCapacity, updateScoreCard,
   tossDecision, tossResult, coinTossAttempted, joinGame, setSignFreshA, setSignFreshB,
   createGame,uniqueUser,createGamePool, removeUser, changeActivePlayer, cleanGame} = require("./utility/gameManager")
-const { assignData, createUser} = require("./utility/user.js")
+const { assignData, createUser, getUser} = require("./utility/user.js")
  
 const io = new Server({ cors: {
   origin: "*",
@@ -14,7 +14,8 @@ const io = new Server({ cors: {
 const GAME_POOL_COUNT = 50;
 const COIN_TOSSED_MESSAGE = "Coin tossed .. Waiting for captain's call";
 const USERNAME_DUPLICATE = "Username taken by your friend :(. Try a new one!";
-const GAME_JOIN_FAILED = "Game join failed - No capapcity or wrong room id";
+const INVALID_ROOM = "Invalid Room number";
+const CAPACITY_FULL = "Room capacity full";
 const COIN_TOSS_FAILED = "Toss failed please try again!";
 const INACTIVE_USER_ATTEMPT = "Ask your captain for a chance !";
 
@@ -82,10 +83,10 @@ io.on("connection", (socket) => {
       }
     }
     if(!validRoom) {
-      socket.emit("custom-error", {errorMessage:"Invalid Room number"});
+      socket.emit("custom-error", {errorMessage:INVALID_ROOM});
     }
     if(!teamCapacityValid && !cookie && validRoom) {
-      socket.emit("custom-error", {errorMessage:"Room capacity full"});
+      socket.emit("custom-error", {errorMessage:CAPACITY_FULL});
     }
     if( validRoom && teamCapacityValid && !cookie) {
       if(uniqueUser(username, roomID, team)){
@@ -224,6 +225,24 @@ io.on("connection", (socket) => {
  socket.on("message", ({username, team, message, room}) => {
     logItOnFile("[INFO] Message [SKID] " + username + " [ROOM] " + room);
    io.to(room).emit("message", {username, team, message});
+ });
+
+ socket.on("leave-game", ({username, team, room}) => {
+  try {
+   logItOnConsole("[INFO] leave button click [USER] "+ username + " [ROOM] "+ room);
+   let userRemoved = removeUser(getUser(username+room+team), team);
+   logItOnFile("[INFO] Disocnnected [SKID] " + socket.id + " [RVAL] " + userRemoved.removedUser.username);
+   socket.leave(room);
+   io.to(room).emit("user-disconnected", userRemoved);
+   message = userRemoved.removedUser.username + "left the game";
+   io.to(room).emit("custom-info", {infoMessage:message});
+   socket.emit("leave-room", {infoMessage:"Left the game !"});
+  }
+  catch (error) {
+    console.log(error);
+    logItOnFile("[EROR] Could not leavegame. Try again ");
+    socket.emit("custom-info", {infoMessage:"Could not leave room try again !"});
+  }
  });
 
  socket.on("disconnect", (reason) => {
