@@ -4,14 +4,22 @@ const { getGameState, validateRoomID, validateTeamCapacity, updateScoreCard,
   tossDecision, tossResult, coinTossAttempted, joinGame, setSignFreshA, setSignFreshB,
   createGame,uniqueUser,createGamePool, removeUser, changeActivePlayer, cleanGame} = require("./utility/gameManager")
 const { assignData, createUser, getUser} = require("./utility/user.js")
- 
-const io = new Server({ cors: {
-  origin: "*",
-  methods: ["GET", "POST"]
-}});
-
+const path = require('path');
+const fs = require('fs');
+const httpServer = require("https").createServer({
+  key: fs.readFileSync(path.join(__dirname, 'cert', 'private.key')),
+  cert: fs.readFileSync(path.join(__dirname, 'cert', 'certificate.crt')),
+  ca:fs.readFileSync(path.join(__dirname, 'cert', 'ca_bundle.crt'))
+});
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 const GAME_POOL_COUNT = 50;
+const PORT = 3000;
 const COIN_TOSSED_MESSAGE = "Coin tossed .. Waiting for captain's call";
 const USERNAME_DUPLICATE = "Username taken by your friend :(. Try a new one!";
 const INVALID_ROOM = "Invalid Room number";
@@ -270,9 +278,18 @@ io.on("connection", (socket) => {
 try {
   logItOnConsole("[INFO] Creating Game pool of [RVAL] : " + GAME_POOL_COUNT);
   createGamePool(GAME_POOL_COUNT);
-
   logItOnConsole("[INFO] Starting game server .....");
-  io.listen(3000);
+  if(process.env.MODE === 'dev') {
+    logItOnConsole("[INFO] Starting [dev] game server .....");
+    io.listen(PORT);
+  }
+  else if(process.env.MODE === 'prod') {
+    logItOnConsole("[INFO] Starting [prod] game server .....");
+    httpServer.listen(PORT);
+  }
+  else {
+    console.log("failed to start server");
+  }
 }
 
 catch(e) {
