@@ -105,14 +105,16 @@ the first user in any team becomes the team captain by default
 const joinGame = (user, gameID, team) => {
     game = activeGames.get(gameID);
     if (team === "A") {
-        if(game.public.activeUsersTeamA.length === 0) {
+        if(game.public.activeUsersTeamA.length === 0 || 
+            game.public.activeUsersTeamA.filter(user => user.online).length === 0) {
             user.captain = true;
             game.public.captainTeamA = user;
         }
         game.public.activeUsersTeamA.push(user);
     }
     else if (team === "B") {
-        if(game.public.activeUsersTeamB.length === 0) {
+        if(game.public.activeUsersTeamB.length === 0 || 
+            game.public.activeUsersTeamB.filter(user => user.online).length === 0) {
             user.captain = true;
             game.public.captainTeamB = user;
             game.public.coinTossActivate = true;
@@ -127,9 +129,9 @@ const joinGame = (user, gameID, team) => {
 * At a time there is only one eactive player per team
 */
 
-const changeActivePlayer = (user) => {
-    game = activeGames.get(user.room);
-    user = getUser(user.id);
+const changeActivePlayer = (userclient) => {
+    game = activeGames.get(userclient.room);
+    user = getUser(userclient.id);
     if (user.team === 'A') {
         game.public.activePlayerA.active = false;
         user.active = true;
@@ -152,16 +154,24 @@ const changeActivePlayer = (user) => {
     }
 }
 
-const removeUser = (user, team) => {
-    let game = activeGames.get(user.room);
+const removeUser = (userclient, team) => {
+    let game = activeGames.get(userclient.room);
+    let user = getUser(userclient.id);
     let captain;
     let captainChanged = false;
     let usersList;
     let activeUserChanged = false;
+    user.online =  false;
     if(team === 'A') {
-        if(user.active ) {
+        if(user.active) {
             activeUserChanged = true;
             game.public.activePlayerA = {};
+            user.active = false;
+        }
+        if(user.captain) {
+            game.public.captainTeamA = {};
+            captainChanged = true;
+            user.captain = false;
         }
         let otherPlayers = game.public.activeUsersTeamA.filter(data => (data.username != user.username) && data.online);
         if(user.captain && otherPlayers.length > 0) {
@@ -169,13 +179,6 @@ const removeUser = (user, team) => {
             captainChanged = true;
             game.public.captainTeamA = otherPlayers[0];
         }
-        game.public.activeUsersTeamA.forEach(player => {
-            if(player.id === user.id) {
-                player.online  = false;
-                player.active = false;
-                player.captain = false;
-            }
-        });
         if(user.cookieEnable)
         {
             usersList = [...game.public.activeUsersTeamA];
@@ -186,12 +189,17 @@ const removeUser = (user, team) => {
             deleteUser(user);
         }
         captain = game.public.captainTeamA;
-      
     }
     else {
         if(user.active ) {
             activeUserChanged = true;
             game.public.activePlayerB = {}
+            user.active = false;
+        }
+        if(user.captain) {
+            game.public.captainTeamB = {};
+            captainChanged = true;
+            user.captain = false;
         }
         let otherPlayers = game.public.activeUsersTeamB.filter(data => (data.username != user.username) && data.online);
         if(user.captain && otherPlayers.length > 0) {
@@ -199,13 +207,6 @@ const removeUser = (user, team) => {
             game.public.captainTeamB = otherPlayers[0];
             captainChanged = true;
         }
-        game.public.activeUsersTeamB.forEach(player => {
-            if(player.id === user.id) {
-                player.online  = false;
-                player.active = false;
-                player.captain = false;
-            }
-        });
         if(user.cookieEnable)
         {
             usersList = [...game.public.activeUsersTeamB];

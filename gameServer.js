@@ -18,7 +18,7 @@ const io = new Server(httpServer, {
   }
 });
 
-const GAME_POOL_COUNT = 50;
+const GAME_POOL_COUNT = 2000;
 const PORT = 3000;
 const COIN_TOSSED_MESSAGE = "Coin tossed .. Waiting for captain's call";
 const USERNAME_DUPLICATE = "Username taken by your friend :(. Try a new one!";
@@ -30,25 +30,21 @@ const INACTIVE_USER_ATTEMPT = "Ask your captain for a chance !";
 io.on("connection", (socket) => {
   logItOnFile("[INFO] A new connection [SKID] " + socket.id);
   let user;
-  try {
-  user = createUser();
-  socket.myCustomUserHandle = user;
-  }
-  catch {
-    socket.emit("[EROR] custom-info", {infoMessage:"Please reload"});
-  }
+
    //create game
   socket.on("create-game", ({username, noOfPlayersInEachSide}) => {
     try {
-    roomID = createGame(noOfPlayersInEachSide);
-    logItOnFile("[INFO] a new game has been created [GAME] " + roomID + "[USER] " + username);
-    assignData(user, username, "A", roomID);
-    socket.join(roomID);
-    joinGame(user,roomID,"A");
+      user = createUser();
+      socket.myCustomUserHandle = user;
+      roomID = createGame(noOfPlayersInEachSide);
+      logItOnFile("[INFO] a new game has been created [GAME] " + roomID + "[USER] " + username);
+      assignData(user, username, "A", roomID);
+      socket.join(roomID);
+      joinGame(user, roomID, "A");
 
-    //client emits will go here
-    let gameState = getGameState(roomID);
-    socket.emit("game-created", {gameState, user});
+      //client emits will go here
+      let gameState = getGameState(roomID);
+      socket.emit("game-created", { gameState, user });
     }
     catch(error) {
       socket.emit("custom-info" ,{infoMessage:"Please try again!"});
@@ -66,25 +62,26 @@ io.on("connection", (socket) => {
       teamCapacityValid = validateTeamCapacity(roomID, team);
     }
     if(cookie) {
-      logItOnFile("Cookie join attempt");
+      logItOnFile("[INFO] COOKIE JOIN ATTEMPT [GAME] " + roomID + "[USER] " + username);
       if(validRoom) {
       let gameState = getGameState(roomID);
       if(team === 'A') {
         user = gameState.activeUsersTeamA.find(users => users.username === username);
-        user.online = true;
-        if(gameState.captainTeamA.online === false) {
+        socket.myCustomUserHandle = user;
+        if(gameState.activeUsersTeamA.filter(user => user.online).length === 0 ) {
           user.captain = true;
           gameState.captainTeamA = user;
         }
       }
       if(team === 'B') {
         user = gameState.activeUsersTeamB.find(users => users.username === username);
-        user.online = true;
-        if(gameState.captainTeamB.online === false) {
+        socket.myCustomUserHandle = user;
+        if(gameState.activeUsersTeamB.filter(user => user.online).length === 0) {
           user.captain = true;
           gameState.captainTeamB = user;
         }
       }
+      user.online = true;
       socket.emit("existing-game-state", {gameState, user});
       io.to(roomID).emit("player-joined", {user, cookie});
       socket.join(roomID);
@@ -98,6 +95,8 @@ io.on("connection", (socket) => {
     }
     if( validRoom && teamCapacityValid && !cookie) {
       if(uniqueUser(username, roomID, team)){
+        user = createUser();
+        socket.myCustomUserHandle = user;
       logItOnFile("[INFO] A new player has joined the room-- [GAME] " + roomID + "[USER] " + username);
       //emit to room
 
@@ -253,25 +252,27 @@ io.on("connection", (socket) => {
   }
  });
 
- socket.on("disconnect", (reason) => {
-    let userHandle = socket.myCustomUserHandle;
-    let username = userHandle.username
-    try {
-    if(userHandle.id.length > 0) {
-    let team = userHandle.team;
-    userRemoved = removeUser(userHandle, team);
-    //removedUser: User, team: A | B, usersList:User[], newCaptain:User, captainChanged:boolean
-    io.to(userHandle.room).emit("user-disconnected", userRemoved);
-    message = userHandle.username + "left the game";
-    io.to(userHandle.room).emit("custom-info", {infoMessage:message});
-    logItOnFile("[INFO] Disocnnected [SKID] " + socket.id + " [RVAL] " + username);
-    }
+  socket.on("disconnect", (reason) => {
+    let userHandle;
     logItOnFile("[INFO] Disocnnected [SKID] " + socket.id);
-    delete user;
-  }
-  catch (error) {
-    logItOnFile("[EROR] Failed on disconnection" + error)
-  }
+    try {
+      if (socket.myCustomUserHandle) {
+        userHandle = socket.myCustomUserHandle;
+        username = userHandle.username;
+        if (userHandle.username && userHandle.id.length > 0) {
+          let team = userHandle.team;
+          userLeftData = removeUser(userHandle, team);
+          //removedUser: User, team: A | B, usersList:User[], newCaptain:User, captainChanged:boolean
+          io.to(userHandle.room).emit("user-disconnected", userLeftData);
+          message = userHandle.username + "left the game";
+          io.to(userHandle.room).emit("custom-info", { infoMessage: message });
+          logItOnFile("[INFO] Disocnnected [SKID] " + socket.id + " [RVAL] " + username);
+        }
+      }
+    }
+    catch (error) {
+      logItOnFile("[EROR] Failed on disconnection" + error)
+    }
   });
 });
 
