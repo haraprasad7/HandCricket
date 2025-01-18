@@ -171,13 +171,14 @@ const removeUser = (userclient, team) => {
         if(user.captain) {
             game.public.captainTeamA = {};
             captainChanged = true;
-            user.captain = false;
+            
         }
         let otherPlayers = game.public.activeUsersTeamA.filter(data => (data.username != user.username) && data.online);
         if(user.captain && otherPlayers.length > 0) {
             otherPlayers[0].captain = true;
             captainChanged = true;
             game.public.captainTeamA = otherPlayers[0];
+            user.captain = false;
         }
         if(user.cookieEnable)
         {
@@ -199,13 +200,14 @@ const removeUser = (userclient, team) => {
         if(user.captain) {
             game.public.captainTeamB = {};
             captainChanged = true;
-            user.captain = false;
+           
         }
         let otherPlayers = game.public.activeUsersTeamB.filter(data => (data.username != user.username) && data.online);
         if(user.captain && otherPlayers.length > 0) {
             otherPlayers[0].captain = true;
             game.public.captainTeamB = otherPlayers[0];
             captainChanged = true;
+            user.captain = false;
         }
         if(user.cookieEnable)
         {
