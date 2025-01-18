@@ -7,9 +7,7 @@ const { assignData, createUser, getUser} = require("./utility/user.js")
 const path = require('path');
 const fs = require('fs');
 const httpServer = require("https").createServer({
-  key: fs.readFileSync('/etc/letsencrypt/live/handcricket.live/privkey.pem'),
-  cert: fs.readFileSync('/etc/letsencrypt/live/handcricket.live/cert.pem'),
-  ca:fs.readFileSync('/etc/letsencrypt/live/handcricket.live/fullchain.pem')
+  
 });
 const io = new Server(httpServer, {
   cors: {
@@ -280,13 +278,11 @@ try {
   logItOnConsole("[INFO] Creating Game pool of [RVAL] : " + GAME_POOL_COUNT);
   createGamePool(GAME_POOL_COUNT);
   logItOnConsole("[INFO] Starting game server .....");
-  if(process.env.MODE === 'dev') {
+  
     logItOnConsole("[INFO] Starting [dev] game server .....");
     io.listen(PORT);
-  }
-  
-    logItOnConsole("[INFO] Starting [prod] game server .....");
-    httpServer.listen(PORT);
+
+
 }
 
 catch(e) {
