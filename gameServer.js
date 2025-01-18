@@ -7,9 +7,9 @@ const { assignData, createUser, getUser} = require("./utility/user.js")
 const path = require('path');
 const fs = require('fs');
 const httpServer = require("https").createServer({
-  key: fs.readFileSync(path.join(__dirname, 'cert', 'private.key')),
-  cert: fs.readFileSync(path.join(__dirname, 'cert', 'certificate.crt')),
-  ca:fs.readFileSync(path.join(__dirname, 'cert', 'ca_bundle.crt'))
+  key: fs.readFileSync('/etc/letsencrypt/live/handcricket.live/privkey.pem'),
+  cert: fs.readFileSync('/etc/letsencrypt/live/handcricket.live/cert.pem'),
+  ca:fs.readFileSync('/etc/letsencrypt/live/handcricket.live/fullchain.pem')
 });
 const io = new Server(httpServer, {
   cors: {
@@ -284,13 +284,9 @@ try {
     logItOnConsole("[INFO] Starting [dev] game server .....");
     io.listen(PORT);
   }
-  else if(process.env.MODE === 'prod') {
+  
     logItOnConsole("[INFO] Starting [prod] game server .....");
     httpServer.listen(PORT);
-  }
-  else {
-    console.log("failed to start server");
-  }
 }
 
 catch(e) {
