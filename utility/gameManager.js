@@ -39,6 +39,7 @@ const createGameObject = (numberOfPlayers, roomID) => {
         gameStateIndicator:0,
         tossWinner:"",
         bat:"",
+        bowl:"",
         signA:{},
         signB:{},
         result:"",
@@ -319,9 +320,11 @@ const tossDecision = (data, roomID) => {
             game.private.firstInnings.teamBatting = game.public.scoreCard.teamAScore;
             game.private.secondInnings.teamBatting = game.public.scoreCard.teamBScore;
             game.public.bat ="A";
+            game.public.bowl = "B";
         }
         else {
             game.public.bat ="B";
+            game.public.bowl = "A";
             game.private.firstInnings.teamBatting = game.public.scoreCard.teamBScore;
             game.private.secondInnings.teamBatting = game.public.scoreCard.teamAScore;
             
@@ -332,11 +335,13 @@ const tossDecision = (data, roomID) => {
         message = ' bowl first';
         if(game.public.tossWinner === "B") {
             game.public.bat ="A";
+            game.public.bowl = "B";
             game.private.firstInnings.teamBatting = game.public.scoreCard.teamAScore;
             game.private.secondInnings.teamBatting = game.public.scoreCard.teamBScore;
         }
         else {
             game.public.bat ="B";
+            game.public.bowl = "A";
             game.private.firstInnings.teamBatting = game.public.scoreCard.teamBScore;
             game.private.secondInnings.teamBatting = game.public.scoreCard.teamAScore;
         }
@@ -407,7 +412,9 @@ const updateScoreCard = (gameID) => {
             displayCardWickets: game.public.displayCardWickets,
             updated: false,
             wicket: false,
-            result:result
+            result:result,
+            signASignal:game.private.signFreshA,
+            signBSignal:game.private.signFreshB
         });
     }
     //resetSignFresh
@@ -462,10 +469,12 @@ const updateScoreCard = (gameID) => {
             game.public.displayCardWickets = 0;
             // [ACTION] : Innings change direct batting indicator
             if( game.public.bat === 'A') {
-                game.public.bat = 'B'
+                game.public.bat = 'B';
+                game.public.bowl = "A";
             }
             else {
                 game.public.bat = 'A';
+                game.public.bowl = "B";
             }
         }
         return ({
@@ -480,6 +489,8 @@ const updateScoreCard = (gameID) => {
             updated: true,
             wicket: wicket,
             result:result,
+            signASignal:game.private.signFreshA,
+            signBSignal:game.private.signFreshB
         });
     }
     if(game.private.inningsIndex === 3) {
@@ -529,16 +540,16 @@ const updateScoreCard = (gameID) => {
             game.private.secondInnings.teamBatting.score > game.private.firstInnings.teamBatting.score) {
             game.private.inningsIndex = 4;
             if(game.private.secondInnings.teamBatting.score > game.private.firstInnings.teamBatting.score) {
-                result = 'B';
-                game.public.result = 'B';
+                result = game.public.bat;
+                game.public.result = game.public.bat;
             }
             else if (game.private.secondInnings.teamBatting.score === game.private.firstInnings.teamBatting.score) {
                 result = "T";
                 game.public.result = 'T';
             }
             else {
-                result = 'A';
-                game.public.result = 'A';
+                    result = game.public.bowl;
+                    game.public.result = game.public.bowl;
             }
         }
         return ({
@@ -553,7 +564,9 @@ const updateScoreCard = (gameID) => {
             updated:true,
             wicket: wicket, 
             result: result,
-            gameState: game.public
+            gameState: game.public,
+            signASignal:game.private.signFreshA,
+            signBSignal:game.private.signFreshB
         });
     }
 }
