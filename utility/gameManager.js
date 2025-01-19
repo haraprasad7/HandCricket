@@ -132,25 +132,27 @@ const joinGame = (user, gameID, team) => {
 const changeActivePlayer = (userclient) => {
     game = activeGames.get(userclient.room);
     user = getUser(userclient.id);
-    if (user.team === 'A') {
-        game.public.activePlayerA.active = false;
-        user.active = true;
-        game.public.activePlayerA = user;
-        return ({
-            user:game.public.activePlayerA,
-            message: "Active player of team A changed",
-            team:'A'
-        });
-    }
-    else {
-        game.public.activePlayerB.active =  false;
-        user.active = true;
-        game.public.activePlayerB = user;
-        return ({
-            user:game.public.activePlayerB,
-            message: "Active player of team B changed",
-            team:'B'
-        });
+    if (game.public.gameStateIndicator = 4) {
+        if (user.team === 'A') {
+            game.public.activePlayerA.active = false;
+            user.active = true;
+            game.public.activePlayerA = user;
+            return ({
+                user: game.public.activePlayerA,
+                message: "Active player of team A changed",
+                team: 'A'
+            });
+        }
+        else {
+            game.public.activePlayerB.active = false;
+            user.active = true;
+            game.public.activePlayerB = user;
+            return ({
+                user: game.public.activePlayerB,
+                message: "Active player of team B changed",
+                team: 'B'
+            });
+        }
     }
 }
 
