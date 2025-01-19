@@ -430,6 +430,7 @@ const updateScoreCard = (gameID) => {
             wicket = true;
             if( game.public.bat === 'A') {
                game.public.activePlayerA.active = false;
+               game.public.activePlayerA = {};
                game.public.activeUsersTeamB.forEach(user => {
                    if (user.username === game.private.bowlingActiveSign.username) {
                        user.wickets = user.wickets + 1;
@@ -438,6 +439,7 @@ const updateScoreCard = (gameID) => {
             }
             else {
                 game.public.activePlayerB.active = false;
+                game.public.activePlayerB = {};
                 game.public.activeUsersTeamA.forEach(user => {
                     if (user.username === game.private.bowlingActiveSign.username) {
                         user.wickets = user.wickets + 1;
@@ -467,6 +469,10 @@ const updateScoreCard = (gameID) => {
             game.private.inningsIndex = 2;
             game.public.displayCardScore = 0;
             game.public.displayCardWickets = 0;
+            game.public.activePlayerA.active = false;
+            game.public.activePlayerA = {};
+            game.public.activePlayerB.active = false;
+            game.public.activePlayerB = {};
             // [ACTION] : Innings change direct batting indicator
             if( game.public.bat === 'A') {
                 game.public.bat = 'B';
